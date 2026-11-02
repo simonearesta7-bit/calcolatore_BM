@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: index.html');
     exit;
@@ -38,21 +42,19 @@ if ($dati_validi) {
     $log_bmi = $bmi_formattato;
     $log_class = $categoria;
 } else {
-    if (!empty($nome)) {
-        $log_nome = $nome;
-    } else {
-        $log_nome = 'NOT_VALID';
-    }
+    $log_nome = !empty($nome) ? $nome : 'NOT_VALID';
     $log_altezza = 'NOT_VALID';
     $log_peso = 'NOT_VALID';
     $log_bmi = 'NOT_VALID';
     $log_class = 'NOT_VALID';
 }
 $file_log = "log.csv";
-$file = fopen($file_log, "a");
-$riga_log = $data_ora . "," . $ip_address . "," . $log_nome . "," . $log_altezza . "," . $log_peso . "," . $log_bmi . "," . $log_class . "\n";
-fwrite($file, $riga_log);
-fclose($file);
+$file = @fopen($file_log, "a");
+if ($file) {
+    $riga_log = $data_ora . "," . $ip_address . "," . $log_nome . "," . $log_altezza . "," . $log_peso . "," . $log_bmi . "," . $log_class . "\n";
+    fwrite($file, $riga_log);
+    fclose($file);
+}
 ?>
 <!DOCTYPE html>
 <html lang="it">
