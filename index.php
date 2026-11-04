@@ -1,25 +1,34 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
+$nome = "";
+$peso = "";
+$altezza = "";
+$err_nome = "";
+$err_peso = "";
+$err_altezza = "";
+$mostra_risultato = false;
+$bmi_formattato = "";
+$categoria = "";
+$classe_css = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $mostra_risultato = true;
-    $ip_address = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'UNKNOWN_IP';
-    $data_ora = date('d/m/Y H:i:s');
-    $raw_nome = isset($_POST['nome']) ? $_POST['nome'] : '';
-    $raw_peso = isset($_POST['peso']) ? $_POST['peso'] : '';
-    $raw_altezza = isset($_POST['altezza']) ? $_POST['altezza'] : '';
-    $nome = htmlspecialchars(trim($raw_nome));
-    $peso = floatval($raw_peso);
-    $altezza_cm = floatval($raw_altezza);
-    $nome_valido = !empty($nome);
-    $peso_valido = ($peso > 0);
-    $altezza_valida = ($altezza_cm > 0);
-    $dati_validi = ($nome_valido && $peso_valido && $altezza_valida);
-    if ($dati_validi) {
+    $nome = isset($_POST['nome']) ? trim($_POST['nome']) : '';
+    $peso = isset($_POST['peso']) ? trim($_POST['peso']) : '';
+    $altezza = isset($_POST['altezza']) ? trim($_POST['altezza']) : '';
+    $peso_num = (float)$peso;
+    $altezza_cm = (float)$altezza;
+
+    if (empty($nome)) {
+        $err_nome = "Valore non valido";
+    }
+    if ($peso_num <= 0) {
+        $err_peso = "Valore non valido";
+    }
+    if ($altezza_cm <= 0) {
+        $err_altezza = "Valore non valido";
+    }
+    if (empty($err_nome) && empty($err_peso) && empty($err_altezza)) {
+        $mostra_risultato = true;
         $altezza_m = $altezza_cm / 100;
-        $bmi = $peso / ($altezza_m * $altezza_m);
+        $bmi = $peso_num / ($altezza_m * $altezza_m);
         $bmi_formattato = number_format($bmi, 2, '.', '');
         if ($bmi < 18.5) {
             $categoria = "SOTTOPESO";
@@ -34,25 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $categoria = "OBESITA";
             $classe_css = "obesita";
         }
-        $log_nome = $nome;
-        $log_altezza = $altezza_cm;
-        $log_peso = $peso;
-        $log_bmi = $bmi_formattato;
-        $log_class = $categoria;
-    } else {
-        $errore_messaggio = "Inserisci un nome valido e assicuratevi che peso e altezza siano numeri maggiori di zero.";
-        $log_nome = !empty($nome) ? $nome : 'NOT_VALID';
-        $log_altezza = 'NOT_VALID';
-        $log_peso = 'NOT_VALID';
-        $log_bmi = 'NOT_VALID';
-        $log_class = 'NOT_VALID';
-    }
-    $file_log = "log.csv";
-    $file = @fopen($file_log, "a");
-    if ($file) {
-        $riga_log = $data_ora . "," . $ip_address . "," . $log_nome . "," . $log_altezza . "," . $log_peso . "," . $log_bmi . "," . $log_class . "\n";
-        @fwrite($file, $riga_log);
-        @fclose($file);
+        $data_ora = date('d/m/Y H:i:s');
+        $file_log = "log.csv";
+        $file = @fopen($file_log, "a");
+        if ($file) {
+            $riga_log = $data_ora . "," . $nome . "," . $altezza_cm . "," . $peso_num . "," . $bmi_formattato . "," . $categoria . "\n";
+            @fwrite($file, $riga_log);
+            @fclose($file);
+        }
     }
 }
 ?>
@@ -67,11 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        input.input-error { border: 1px solid #d9534f; background-color: #fff0f0; }
+        .error-message { color: #d9534f; font-size: 13px; margin-top: 4px; display: block; font-weight: bold; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; margin-top: 10px; }
         button:hover { background-color: #0056b3; }
         .risultato { margin-top: 25px; padding: 15px; border-top: 2px solid #eee; text-align: center; }
-        .errore { color: #d9534f; background: #fdf7f7; padding: 10px; border-radius: 4px; }
         .sottopeso { color: #17a2b8; }
         .normopeso { color: #28a745; }
         .sovrappeso { color: #ffc107; }
@@ -81,33 +80,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="container">
     <h2>Calcolatore BMI</h2>
-        <form method="POST" action="index.php">
+    <form method="POST" action="index.php" novalidate>
         <div class="form-group">
             <label for="nome">Nome:</label>
-            <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($nome); ?>" required>
+            <input type="text" id="nome" name="nome" 
+                   class="<?php echo !empty($err_nome) ? 'input-error' : ''; ?>"
+                   value="<?php echo htmlspecialchars($nome); ?>">
+            <?php if (!empty($err_nome)): ?>
+                <span class="error-message"><?php echo $err_nome; ?></span>
+            <?php endif; ?>
         </div>
         <div class="form-group">
             <label for="peso">Peso (kg):</label>
-            <input type="number" step="0.1" id="peso" name="peso" value="<?php echo htmlspecialchars($peso); ?>" required>
+            <input type="text" id="peso" name="peso" 
+                   class="<?php echo !empty($err_peso) ? 'input-error' : ''; ?>"
+                   value="<?php echo htmlspecialchars($peso); ?>">
+            <?php if (!empty($err_peso)): ?>
+                <span class="error-message"><?php echo $err_peso; ?></span>
+            <?php endif; ?>
         </div>
         <div class="form-group">
             <label for="altezza">Altezza (cm):</label>
-            <input type="number" step="1" id="altezza" name="altezza" value="<?php echo htmlspecialchars($altezza_cm); ?>" required>
+            <input type="text" id="altezza" name="altezza" 
+                   class="<?php echo !empty($err_altezza) ? 'input-error' : ''; ?>"
+                   value="<?php echo htmlspecialchars($altezza); ?>">
+            <?php if (!empty($err_altezza)): ?>
+                <span class="error-message"><?php echo $err_altezza; ?></span>
+            <?php endif; ?>
         </div>
         <button type="submit">Calcola BMI</button>
     </form>
     <?php if ($mostra_risultato): ?>
         <div class="risultato">
-            <?php if ($dati_validi): ?>
-                <h3>Risultato per <?php echo $nome; ?></h3>
-                <p>Il tuo BMI è: <strong><?php echo $bmi_formattato; ?></strong></p>
-                <p class="<?php echo $classe_css; ?>">Categoria: <strong><?php echo $categoria; ?></strong></p>
-            <?php else: ?>
-                <p class="errore"><?php echo $errore_messaggio; ?></p>
-            <?php endif; ?>
+            <h3>Risultato per <?php echo htmlspecialchars($nome); ?></h3>
+            <p>Il tuo BMI è: <strong><?php echo $bmi_formattato; ?></strong></p>
+            <p class="<?php echo $classe_css; ?>">Categoria: <strong><?php echo $categoria; ?></strong></p>
         </div>
     <?php endif; ?>
 </div>
-
 </body>
 </html>
